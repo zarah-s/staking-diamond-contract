@@ -11,15 +11,139 @@ error INSUFFICIENT_STAKED_TOKEN();
 error NO_REWARD();
 
 contract StakingFacet {
-    function init(address _stakeToken, address _rewardToken) external {
+    function initStakeToken() external {
         LibAppStorage.Layout storage layout = LibAppStorage.appStorage();
-        layout.stakeToken = IERC20(_stakeToken);
-        layout.rewardToken = IERC20(_rewardToken);
+
+        layout.stakeToken.name = "PYDE";
+        layout.stakeToken.symbol = "PYD";
+        layout.stakeToken.totalSupply = 100000 * 10 ** 18;
+        layout.stakeToken.balanceOf[msg.sender] = layout.stakeToken.totalSupply;
+    }
+
+    function initRewardToken() external {
+        LibAppStorage.Layout storage layout = LibAppStorage.appStorage();
+
+        layout.stakeToken.name = "PYDEReward";
+        layout.stakeToken.symbol = "PYDR";
+        layout.stakeToken.totalSupply = 100000 * 10 ** 18;
+        // layout.stakeToken.balanceOf[msg.sender] = layout.stakeToken.totalSupply;
+    }
+
+    function transfer(
+        address recipient,
+        uint256 amount,
+        LibAppStorage.TokenType tokenType
+    ) public {
+        LibAppStorage.Layout storage layout = LibAppStorage.appStorage();
+
+        if (tokenType == LibAppStorage.TokenType.StakeToken) {
+            require(
+                layout.stakeToken.balanceOf[msg.sender] >= amount,
+                "INSUFFICIENT_BALANCE"
+            );
+            layout.stakeToken.balanceOf[msg.sender] -= amount;
+            layout.stakeToken.balanceOf[recipient] += amount;
+        } else {
+            require(
+                layout.stakeToken.balanceOf[msg.sender] >= amount,
+                "INSUFFICIENT_BALANCE"
+            );
+            layout.stakeToken.balanceOf[msg.sender] -= amount;
+            layout.rewardToken.balanceOf[recipient] += amount;
+        }
+    }
+
+    function getAllowance(
+        address owner,
+        address spender,
+        LibAppStorage.TokenType tokenType
+    ) public view returns (uint256) {
+        LibAppStorage.Layout storage layout = LibAppStorage.appStorage();
+
+        if (tokenType == LibAppStorage.TokenType.StakeToken) {
+            return layout.stakeToken.allowance[owner][spender];
+        } else {
+            return layout.stakeToken.allowance[owner][spender];
+        }
+    }
+
+    function approve(
+        address spender,
+        uint256 amount,
+        LibAppStorage.TokenType tokenType
+    ) public {
+        LibAppStorage.Layout storage layout = LibAppStorage.appStorage();
+
+        if (tokenType == LibAppStorage.TokenType.StakeToken) {
+            layout.stakeToken.allowance[msg.sender][spender] = amount;
+        } else {
+            layout.rewardToken.allowance[msg.sender][spender] = amount;
+        }
+    }
+
+    function transferFrom(
+        address sender,
+        address recipient,
+        uint256 amount,
+        LibAppStorage.TokenType tokenType
+    ) public {
+        LibAppStorage.Layout storage layout = LibAppStorage.appStorage();
+
+        if (tokenType == LibAppStorage.TokenType.StakeToken) {
+            require(
+                layout.stakeToken.balanceOf[sender] >= amount,
+                "INSUFFICIENT_BALANCE"
+            );
+            require(
+                layout.stakeToken.allowance[sender][recipient] >= amount,
+                "INSUFFICIENT_ALLOWANCE"
+            );
+            layout.stakeToken.balanceOf[sender] -= amount;
+            layout.stakeToken.balanceOf[recipient] += amount;
+            layout.stakeToken.allowance[sender][recipient] -= amount;
+        } else {
+            require(
+                layout.rewardToken.balanceOf[sender] >= amount,
+                "INSUFFICIENT_BALANCE"
+            );
+            require(
+                layout.rewardToken.allowance[sender][recipient] >= amount,
+                "INSUFFICIENT_ALLOWANCE"
+            );
+            layout.rewardToken.balanceOf[sender] -= amount;
+            layout.rewardToken.balanceOf[recipient] += amount;
+            layout.rewardToken.allowance[sender][recipient] -= amount;
+        }
+    }
+
+    function balanceOf(
+        address account,
+        LibAppStorage.TokenType tokenType
+    ) public view returns (uint256) {
+        LibAppStorage.Layout storage layout = LibAppStorage.appStorage();
+
+        if (tokenType == LibAppStorage.TokenType.StakeToken) {
+            return layout.stakeToken.balanceOf[account];
+        } else {
+            return layout.rewardToken.balanceOf[account];
+        }
+    }
+
+    function getTotalSupply(
+        LibAppStorage.TokenType tokenType
+    ) public view returns (uint256) {
+        LibAppStorage.Layout storage layout = LibAppStorage.appStorage();
+
+        if (tokenType == LibAppStorage.TokenType.StakeToken) {
+            return layout.stakeToken.totalSupply;
+        } else {
+            return layout.rewardToken.totalSupply;
+        }
     }
 
     function calculateReward(address user) public view returns (uint256) {
         LibAppStorage.Layout storage layout = LibAppStorage.appStorage();
-        LibAppStorage.StakeData storage _stake = layout.stakes[user];
+        LibAppStorage.StakeData storage _stake = layout.stake.stakes[user];
 
         uint256 stakedTimeInSeconds = block.timestamp -
             _stake.lastStakedTimestamp;
@@ -32,10 +156,10 @@ contract StakingFacet {
         return reward;
     }
 
-    function getToken() external view returns (address) {
-        LibAppStorage.Layout storage layout = LibAppStorage.appStorage();
-        return address(layout.stakeToken);
-    }
+    // function getToken() external view returns (address) {
+    //     LibAppStorage.Layout storage layout = LibAppStorage.appStorage();
+    //     return address(layout.stakeToken);
+    // }
 
     function stake(uint amount) external {
         LibAppStorage.Layout storage layout = LibAppStorage.appStorage();
@@ -44,14 +168,23 @@ contract StakingFacet {
             revert ZERO_AMOUNT();
         }
 
-        if (layout.stakeToken.balanceOf(msg.sender) < amount) {
+        if (
+            balanceOf(msg.sender, LibAppStorage.TokenType.StakeToken) < amount
+        ) {
             revert INSUFFICIENT_TOKEN();
         }
 
-        layout.stakeToken.transferFrom(msg.sender, address(this), amount);
+        transferFrom(
+            msg.sender,
+            address(this),
+            amount,
+            LibAppStorage.TokenType.StakeToken
+        );
 
         // Update staker's data
-        LibAppStorage.StakeData storage _stake = layout.stakes[msg.sender];
+        LibAppStorage.StakeData storage _stake = layout.stake.stakes[
+            msg.sender
+        ];
 
         _stake.totalStaked = _stake.totalStaked + amount;
 
@@ -61,13 +194,19 @@ contract StakingFacet {
     function unstake() external {
         LibAppStorage.Layout storage layout = LibAppStorage.appStorage();
 
-        LibAppStorage.StakeData storage _stake = layout.stakes[msg.sender];
+        LibAppStorage.StakeData storage _stake = layout.stake.stakes[
+            msg.sender
+        ];
 
         // Update staker's data
         uint reward = (calculateReward(msg.sender));
 
-        layout.stakeToken.transfer(msg.sender, _stake.totalStaked);
-        layout.rewardToken.transfer(msg.sender, reward);
+        transfer(
+            msg.sender,
+            _stake.totalStaked,
+            LibAppStorage.TokenType.StakeToken
+        );
+        transfer(msg.sender, reward, LibAppStorage.TokenType.RewardToken);
         _stake.lastStakedTimestamp = block.timestamp;
         _stake.totalStaked = 0;
     }
@@ -75,7 +214,9 @@ contract StakingFacet {
     function claimReward() external {
         LibAppStorage.Layout storage layout = LibAppStorage.appStorage();
 
-        LibAppStorage.StakeData storage _stake = layout.stakes[msg.sender];
+        LibAppStorage.StakeData storage _stake = layout.stake.stakes[
+            msg.sender
+        ];
 
         uint reward = (calculateReward(msg.sender));
 
@@ -85,7 +226,7 @@ contract StakingFacet {
 
         _stake.lastStakedTimestamp = block.timestamp;
 
-        layout.rewardToken.transfer(msg.sender, reward);
+        transfer(msg.sender, reward, LibAppStorage.TokenType.RewardToken);
     }
 
     function getStakeInfo(
@@ -93,6 +234,6 @@ contract StakingFacet {
     ) external view returns (LibAppStorage.StakeData memory data) {
         LibAppStorage.Layout storage layout = LibAppStorage.appStorage();
 
-        data = layout.stakes[_user];
+        data = layout.stake.stakes[_user];
     }
 }

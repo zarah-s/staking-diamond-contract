@@ -68,14 +68,28 @@ contract DiamondDeployer is Test, IDiamondCut {
     function testLayoutfacet() public {
         StakingFacet _stake = StakingFacet(address(diamond));
         address owner = 0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496;
-        erc20Token.init();
-        erc20Token.balanceOf(owner);
-        _stake.init(address(erc20Token), address(erc20Token));
+        _stake.initStakeToken();
         uint amount = 2 * 10 ** 18;
-        erc20Token.approve(address(stakingFacet), amount);
+        _stake.approve(
+            address(_stake),
+            amount,
+            LibAppStorage.TokenType.StakeToken
+        );
         _stake.stake(amount);
-        // _stake.stake()
+        vm.warp(1641070800);
+        _stake.balanceOf(owner, LibAppStorage.TokenType.RewardToken);
+        _stake.claimReward();
+        _stake.balanceOf(owner, LibAppStorage.TokenType.RewardToken);
 
+        // erc20Token.init();
+        // erc20Token.balanceOf(owner);
+        // // erc20Token.transfer(owner, amount);
+        // _stake.init(address(erc20Token), address(erc20Token));
+        // erc20Token.approve(address(_stake), amount);
+        // erc20Token.balanceOf(address(_stake));
+        // // _stake.calculateReward(msg.sender);
+        // _stake.stake(1);
+        // _stake.stake()
         // erc20.init();
         // // erc20.init(msg.sender, 10 * 10 ** 18);
         // address otherAccount = 0x42AcD393442A1021f01C796A23901F3852e89Ff3;
