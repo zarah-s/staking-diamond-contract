@@ -11,6 +11,12 @@ error INSUFFICIENT_STAKED_TOKEN();
 error NO_REWARD();
 
 contract StakingFacet {
+    function init(address _stakeToken, address _rewardToken) external {
+        LibAppStorage.Layout storage layout = LibAppStorage.appStorage();
+        layout.stakeToken = IERC20(_stakeToken);
+        layout.rewardToken = IERC20(_rewardToken);
+    }
+
     function calculateReward(address user) public view returns (uint256) {
         LibAppStorage.Layout storage layout = LibAppStorage.appStorage();
         LibAppStorage.StakeData storage _stake = layout.stakes[user];
@@ -24,6 +30,11 @@ contract StakingFacet {
             LibAppStorage.SECONDS_IN_A_YEAR /
             100;
         return reward;
+    }
+
+    function getToken() external view returns (address) {
+        LibAppStorage.Layout storage layout = LibAppStorage.appStorage();
+        return address(layout.stakeToken);
     }
 
     function stake(uint amount) external {

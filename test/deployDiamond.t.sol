@@ -9,6 +9,7 @@ import "forge-std/Test.sol";
 import "../contracts/Diamond.sol";
 import "../contracts/libraries/LibAppStorage.sol";
 import "../contracts/facets/StakingFacet.sol";
+import "../contracts/facets/ERC20Facet.sol";
 
 contract DiamondDeployer is Test, IDiamondCut {
     //contract types of facets to be deployed
@@ -17,6 +18,7 @@ contract DiamondDeployer is Test, IDiamondCut {
     DiamondLoupeFacet dLoupe;
     OwnershipFacet ownerF;
     StakingFacet stakingFacet;
+    ERC20Facet erc20Token;
 
     function setUp() public {
         //deploy facets
@@ -24,6 +26,7 @@ contract DiamondDeployer is Test, IDiamondCut {
         diamond = new Diamond(address(this), address(dCutFacet));
         dLoupe = new DiamondLoupeFacet();
         ownerF = new OwnershipFacet();
+        erc20Token = new ERC20Facet();
         stakingFacet = new StakingFacet();
 
         //upgrade diamond with facets
@@ -62,12 +65,19 @@ contract DiamondDeployer is Test, IDiamondCut {
         DiamondLoupeFacet(address(diamond)).facetAddresses();
     }
 
-    function testLayoutfacet() public view {
-        // StakingFacet stake = StakingFacet(address(diamond));
+    function testLayoutfacet() public {
+        StakingFacet _stake = StakingFacet(address(diamond));
+        address owner = 0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496;
+        erc20Token.init();
+        erc20Token.balanceOf(owner);
+        _stake.init(address(erc20Token), address(erc20Token));
+        uint amount = 2 * 10 ** 18;
+        erc20Token.approve(address(stakingFacet), amount);
+        _stake.stake(amount);
+        // _stake.stake()
+
         // erc20.init();
         // // erc20.init(msg.sender, 10 * 10 ** 18);
-        // address owner = 0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496;
-        // uint amount = 2 * 10 ** 18;
         // address otherAccount = 0x42AcD393442A1021f01C796A23901F3852e89Ff3;
         // erc20.transfer(otherAccount, amount);
         // uint256 recipientBalance = erc20.balanceOf(otherAccount);
