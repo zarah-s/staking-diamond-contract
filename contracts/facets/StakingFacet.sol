@@ -11,24 +11,24 @@ error INSUFFICIENT_STAKED_TOKEN();
 error NO_REWARD();
 
 contract StakingFacet {
+    // INITIALIZED STAKE TOKEN
     function initStakeToken() external {
         LibAppStorage.Layout storage layout = LibAppStorage.appStorage();
-
         layout.stakeToken.name = "PYDE";
         layout.stakeToken.symbol = "PYD";
         layout.stakeToken.totalSupply = 100000 * 10 ** 18;
         layout.stakeToken.balanceOf[msg.sender] = layout.stakeToken.totalSupply;
     }
 
+    // INITIALIZED REWARD TOKEN
     function initRewardToken() external {
         LibAppStorage.Layout storage layout = LibAppStorage.appStorage();
-
         layout.stakeToken.name = "PYDEReward";
         layout.stakeToken.symbol = "PYDR";
         layout.stakeToken.totalSupply = 100000 * 10 ** 18;
-        // layout.stakeToken.balanceOf[msg.sender] = layout.stakeToken.totalSupply;
     }
 
+    // INITIATE TOKEN TRANSFER
     function transfer(
         address recipient,
         uint256 amount,
@@ -53,6 +53,7 @@ contract StakingFacet {
         }
     }
 
+    // GET ALLOWANCE
     function getAllowance(
         address owner,
         address spender,
@@ -67,6 +68,7 @@ contract StakingFacet {
         }
     }
 
+    // INITIALIZED APPROVE TOKEN
     function approve(
         address spender,
         uint256 amount,
@@ -81,6 +83,7 @@ contract StakingFacet {
         }
     }
 
+    // INITIALIZED TRANSFER FROM
     function transferFrom(
         address sender,
         address recipient,
@@ -116,6 +119,7 @@ contract StakingFacet {
         }
     }
 
+    // GET ACCOUNT TOKEN BALANCE
     function balanceOf(
         address account,
         LibAppStorage.TokenType tokenType
@@ -141,6 +145,7 @@ contract StakingFacet {
         }
     }
 
+    // CALCULATE REWARD AT A 120% APY
     function calculateReward(address user) public view returns (uint256) {
         LibAppStorage.Layout storage layout = LibAppStorage.appStorage();
         LibAppStorage.StakeData storage _stake = layout.stake.stakes[user];
@@ -156,61 +161,53 @@ contract StakingFacet {
         return reward;
     }
 
-    // function getToken() external view returns (address) {
-    //     LibAppStorage.Layout storage layout = LibAppStorage.appStorage();
-    //     return address(layout.stakeToken);
-    // }
-
+    // INITIATE STAKE FUNCTION
     function stake(uint amount) external {
         LibAppStorage.Layout storage layout = LibAppStorage.appStorage();
-
         if (amount < 1) {
             revert ZERO_AMOUNT();
         }
-
         if (
             balanceOf(msg.sender, LibAppStorage.TokenType.StakeToken) < amount
         ) {
             revert INSUFFICIENT_TOKEN();
         }
-
         transferFrom(
             msg.sender,
             address(this),
             amount,
             LibAppStorage.TokenType.StakeToken
         );
-
         // Update staker's data
         LibAppStorage.StakeData storage _stake = layout.stake.stakes[
             msg.sender
         ];
-
         _stake.totalStaked = _stake.totalStaked + amount;
-
         _stake.lastStakedTimestamp = block.timestamp;
     }
 
+    // UNSTAKE FUNCTION
     function unstake() external {
         LibAppStorage.Layout storage layout = LibAppStorage.appStorage();
-
         LibAppStorage.StakeData storage _stake = layout.stake.stakes[
             msg.sender
         ];
 
         // Update staker's data
         uint reward = (calculateReward(msg.sender));
-
+        // transfer staked token
         transfer(
             msg.sender,
             _stake.totalStaked,
             LibAppStorage.TokenType.StakeToken
         );
+        // transfer reward token
         transfer(msg.sender, reward, LibAppStorage.TokenType.RewardToken);
         _stake.lastStakedTimestamp = block.timestamp;
         _stake.totalStaked = 0;
     }
 
+    // CLAIM REWARD
     function claimReward() external {
         LibAppStorage.Layout storage layout = LibAppStorage.appStorage();
 
@@ -233,7 +230,6 @@ contract StakingFacet {
         address _user
     ) external view returns (LibAppStorage.StakeData memory data) {
         LibAppStorage.Layout storage layout = LibAppStorage.appStorage();
-
         data = layout.stake.stakes[_user];
     }
 }

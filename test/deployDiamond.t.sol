@@ -76,29 +76,23 @@ contract DiamondDeployer is Test, IDiamondCut {
             LibAppStorage.TokenType.StakeToken
         );
         _stake.stake(amount);
+        assertEq(
+            _stake.balanceOf(owner, LibAppStorage.TokenType.StakeToken),
+            (100000 * 10 ** 18) - amount
+        );
         vm.warp(1641070800);
         _stake.balanceOf(owner, LibAppStorage.TokenType.RewardToken);
+        uint reward = _stake.calculateReward(owner);
         _stake.claimReward();
-        _stake.balanceOf(owner, LibAppStorage.TokenType.RewardToken);
+        assertEq(
+            _stake.balanceOf(owner, LibAppStorage.TokenType.RewardToken),
+            reward
+        );
+        vm.warp(2641070800);
 
-        // erc20Token.init();
-        // erc20Token.balanceOf(owner);
-        // // erc20Token.transfer(owner, amount);
-        // _stake.init(address(erc20Token), address(erc20Token));
-        // erc20Token.approve(address(_stake), amount);
-        // erc20Token.balanceOf(address(_stake));
-        // // _stake.calculateReward(msg.sender);
-        // _stake.stake(1);
-        // _stake.stake()
-        // erc20.init();
-        // // erc20.init(msg.sender, 10 * 10 ** 18);
-        // address otherAccount = 0x42AcD393442A1021f01C796A23901F3852e89Ff3;
-        // erc20.transfer(otherAccount, amount);
-        // uint256 recipientBalance = erc20.balanceOf(otherAccount);
-        // assertEq(recipientBalance, amount);
-        // erc20.approve(otherAccount, amount);
-        // uint allowance = erc20.allowance(owner, otherAccount);
-        // assertEq(allowance, amount);
+        _stake.balanceOf(owner, LibAppStorage.TokenType.RewardToken);
+        _stake.unstake();
+        _stake.balanceOf(owner, LibAppStorage.TokenType.RewardToken);
     }
 
     function generateSelectors(
